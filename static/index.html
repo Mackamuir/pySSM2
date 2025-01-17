@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+         @font-face { font-family: 'DSDIGITAL'; src: url('./DS-DIGII.TTF') format('truetype'); } 
+        body { 
+            font-family: DSDIGITAL, sans-serif;
+            height: 100%;
+            background-color: black;
+            color: aqua;
+            font-size: 40px;
+        }
+        .bar {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 10px;
+            font-family: monospace;
+            font-size: 30px;
+        }
+        .top {
+            float: left;
+            width: 30%; /* Adjust the width as needed */
+            text-align: center; /* Optional: Center content inside */
+            margin: 5px;
+        }
+        .clear {
+            clear: both;
+        }
+        .bigger {
+            font-size: 80px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="clear"></div>
+    <p>Boost: <span class="bigger" id="Boost">Waiting...</span> PSI</p>
+    <div class="bar" id="barBoost"></div>
+
+    <p>Coolent: <span class="bigger" id="CoolentTemp">Waiting...</span> C</p>
+    <div class="bar" id="barCoolentTemp"></div>
+    <div>
+        <p class="top">Battery:<br><span id="BatteryVoltage">Waiting...</span> V</p>
+        <p class="top">AFR:<br><span id="AirFuel">Waiting...</span></p>
+        
+        <p class="top">Fuel L/100km:<br><span id="FuelConsumption">Waiting...</span> </p>
+    </div>
+    <script>
+        function renderBarMeter(id, value, min, max) {
+            const barElement = document.getElementById(id);
+
+            // Calculate percentage relative to the range min to max
+            const totalRange = max - min;
+            const normalizedValue = value - min;
+            const percentage = (normalizedValue / totalRange) * 290;
+
+            // Calculate bar length (10 slots), including handling for negative numbers
+            const barCount = Math.round(percentage / 10);
+            var barText = "";
+
+            // Fill bar with "#" for the filled portion
+            for (var i = 0; i < Math.max(barCount, 0); i++) {
+                barText += "\u25A0";
+            }
+
+            // Fill remaining with "-"
+            for (var i = barCount; i < 29; i++) {
+                barText += "\u25A1";
+            }
+
+            // Display the value and bar
+            barElement.textContent = barText;
+        }
+
+        // Establish a WebSocket connection to the server
+        const ws = new WebSocket('ws://subaru.local:8765');
+
+        // Handle WebSocket connection open event
+        ws.onopen = function() {
+            console.log('WebSocket connection opened');
+        };
+
+        // let messageCount = 0;
+        // let requestsPerSecond = 0;
+        // Handle incoming messages from the WebSocket server
+        ws.onmessage = function(event) {
+            // messageCount++;
+            // Parse the received JSON data
+            const data = JSON.parse(event.data);
+            // console.log('Received data:', data);
+
+            renderBarMeter("barBoost", data.Boost, -10, 20);
+            renderBarMeter("barCoolentTemp", data.CoolentTemp, -20, 120);
+
+            // Update the webpage with the received values
+            document.getElementById('Boost').textContent = data.Boost;
+            document.getElementById('CoolentTemp').textContent = data.CoolentTemp;
+            document.getElementById('AirFuel').textContent = data.AirFuel;
+            document.getElementById('BatteryVoltage').textContent = data.BatteryVoltage;
+            // document.getElementById('EngineLoad').textContent = data.EngineLoad;
+            document.getElementById('FuelConsumption').textContent = data.FuelConsumption;
+        };
+
+        ws.onerror = function(error) {
+            console.error('WebSocket Error:', error);
+        };
+
+        // Handle WebSocket connection close event
+        ws.onclose = function() {
+            console.log('WebSocket connection closed');
+        };
+
+
+    </script>
+</body>
+</html>

@@ -3,7 +3,7 @@ import struct
 import time
 
 class PySSM2:
-    def __init__(self, port, baudrate=4800, timeout=1):
+    def __init__(self, port, baudrate=4800, timeout=2):
         """
         Initialize the SSM2Protocol class with the default serial communication settings.
         """
@@ -12,7 +12,7 @@ class PySSM2:
         self.timeout = timeout
         self.source = 0xF0  # Default source address (Diagnostic Tool)
         self.destination = 0x10  # Destination address (Subaru ECU)
-        self.ser = serial.Serial(port, baudrate, timeout=timeout)  # Initialize serial connection
+        self.ser = serial.Serial(port, baudrate=baudrate, timeout=timeout)  # Initialize serial connection
 
     def calculate_checksum(self, packet):
         """
@@ -28,30 +28,35 @@ class PySSM2:
         packet = [0x80, self.destination, self.source,  len(data)] + data
         packet.append(self.calculate_checksum(packet))  # Append the calculated checksum
         # Send the packet via the serial port
-        self.ser.write(bytearray(packet))
+        self.ser.write(bytearray(packet))   
         response = self.receive_packet(len(packet) + responseLength)
-        return response[len(packet):]
+        response = response[len(packet):]
+        if not response:
+            raise TimeoutError("No response received from ECU.")
+        return response
     
     def receive_packet(self, responseLength):
         response = self.ser.read(responseLength)
+        # DEBUG
         # print("---")
         # print("Packet Read:")
+        # print(response[1])
         # print(f"Returned Number of Bytes: {len(response)}")
         # print(f"Expected Returned Number of Bytes: {responseLength}")
-        # print(" ".join(hex(n) for n in response))
+        # print(f"Full Hex String: {' '.join(hex(n) for n in response)}")
         # print(f"Start Byte: {hex(response[0])}")
         # print(f"Destination Byte: {hex(response[1])}")
         # print(f"Source Byte: {hex(response[2])}")
         # print(f"Data Size Byte: {hex(response[3])}")
         # print(f"Data Size Int: {response[3]}")
         # datalen = int(response[3])
-        # print(f"Data Bytes Hex: {" ".join(hex(n) for n in response[4:4 + datalen])}")
+        # print(f"Data Bytes Hex: {' '.join(hex(n) for n in response[4:4 + datalen])}")
         # print(f"Data Bytes Int: {list(response[4:4 + datalen])}")
-        # print(f"Calculated Checksum: {hex(self.calculate_checksum(response[:4 + datalen]))}")
+        # print(f"Expected Checksum: {hex(self.calculate_checksum(response[:4 + datalen]))}")
         # print(f"Returned Checksum: {response[4 + datalen: 5 + datalen].hex()}")
         # DEBUG
         if not response:
-            raise TimeoutError("No response received from ECU.")
+            raise Exception("No response received from ECU.")
         return list(response)
 
 
@@ -103,7 +108,6 @@ class PySSM2:
             print("(write_memory) Error Writing to the ECU, ERROR:")
             print(e)
 
-
     def write_single_address(self, address, value):
         """
         Write a single byte to a specific address.
@@ -117,17 +121,16 @@ class PySSM2:
         """
         Send an ECU initialization request and return the response.
         """
+        print("Initializing ECU, Please Wait...")
         data = [0xBF]
         initialized = False
         self.ser.flush()
         while not initialized:
             try:
-                response = self.send_packet(data)
+                response = self.send_packet(data) # We're not going to bother asking for the amount of bytes as each subaru is different
                 # print(f"{' '.join(hex(n) for n in response)}")
-                print(response)
-                # print(f"ECU Initalized, ECU ID is: {' '.join(hex(n) for n in response[8:13])}")
+                print(f"ECU Initalized, ECU ID is: {' '.join(hex(n) for n in response[8:13])}")
                 initialized = True
-                self.ser.timeout = 0.07 # I found this is a good timeout
                 return response
             except Exception as e:
                 print("Could not initalize ECU, trying again in 3 seconds")
