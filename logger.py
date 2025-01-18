@@ -6,7 +6,7 @@ import PySSM2
 import time
 import csv
 
-log_queue = asyncio.Queue()
+log_queue = asyncio.Queue(maxsize=1)
 
 logfile_timestr = time.strftime('%Y%m%d-%H%M%S')
 logfile_name = logfile_timestr + '-SubaruLog.csv'
