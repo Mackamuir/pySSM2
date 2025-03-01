@@ -6,7 +6,7 @@ import PySSM2
 import time
 import csv
 
-log_queue = asyncio.Queue(maxsize=1)
+# logdata = {}
 
 logfile_timestr = time.strftime('%Y%m%d-%H%M%S')
 logfile_name = logfile_timestr + '-SubaruLog.csv'
@@ -14,42 +14,40 @@ logfile_location = '/var/log/subaru/' + logfile_name
 
 # SSM2 Handler to log data from the ECU
 async def start_ssm2_logger():
+    global logdata
     # Initialize PySSM2
     SSM2 = PySSM2.PySSM2('/dev/ttyUSB0')
     #Initalize the ECU
     SSM2.ecu_init()
-    # Initalize our CSV File
-    start_time = time.time()
-    logfile = open(logfile_location, 'w+')
-    logfileheaders = ['Time', 'Boost Pressure', 'Manifold Absolute Pressure', 'Atmospheric Pressure', 'Coolant Temperature', 'Air Fuel Ratio', 'Mass Airflow', 'Vehicle Speed', 'Engine Speed', 'Battery Voltage', 'Fuel Consumption', 'Engine Load']
-    lf = csv.DictWriter(logfile, fieldnames= logfileheaders)
-    lf.writeheader()
+    # start_time = time.time()
     # Request our data from the ECU Continously 
     # Battery Voltage, Coolant Temperature, A/F Sensor #1, Manifold Absolute Pressure, Atmospheric Pressure, Vehicle Speed, Mass Airflow, Engine Speed
-    addresses = [0x00001C, 0x000008, 0x000046, 0x00000D, 0x000023, 0x000010, 0x000013, 0x00000E, 0x00000F]
-    SSM2.read_single_address(addresses)
+    addresses = [0x00001C, 0x000008, 0x000046, 0x00000D, 0x000023, 0x000010, 0x000013, 0x000014, 0x00000E, 0x00000F]
+    SSM2.read_single_address_continuously(addresses)
     while True:
         # We request the length of our address list and then add 6 for heading and checksum bytes
         response = SSM2.receive_packet(len(addresses) + 6)
-        batteryVoltage = round(response[5] * 0.08, 1)
+        # Do our calculations for the data
+        batteryVoltage = float("%.1f" % (response[5] * 0.08))
         coolentTemperature = response[6] - 40 # Celcius
-        airFuelRatio = round(response[7] / 128 * 14.7, 2)
-        ManifoldAbsolutePressure = response[8] * 37 / 255
-        atmosphericPressure = response[9] * 37 / 255 # PSI
-        vehicleSpeed = response[10]
-        massAirflow = response[11] / 100
-        boostPressure = round(ManifoldAbsolutePressure - atmosphericPressure, 1)
-        engineSpeed = int(str(response[12]) + str(response[13])) / 4
+        airFuelRatio = float("%.2f" % (response[7] / 128 * 14.7))
+        ManifoldAbsolutePressure = float(response[8] * 37 / 255)
+        atmosphericPressure = float(response[9] * 37 / 255) # PSI
+        vehicleSpeed = float(response[10])
+        massAirflow = float("%.2f" %  (((response[11]<<8) | response[12]) / 100))
+        boostPressure = "%.1f" % (ManifoldAbsolutePressure - atmosphericPressure)
+        engineSpeed = float(round(((response[13]<<8) | response[14]) / 4))
         if vehicleSpeed == 0:
-            fuelConsumption = round((1) * ((massAirflow / airFuelRatio ) /761 ) * 100, 1)
+            fuelConsumption = "%.1f" % ((1) * ((massAirflow / airFuelRatio ) / 761 ) * 100)
         else:
-            fuelConsumption = round((3600 / vehicleSpeed) * ((massAirflow / airFuelRatio ) / 761) * 100,1 )
+            fuelConsumption = "%.1f" % ((3600 / vehicleSpeed) * ((massAirflow / airFuelRatio ) / 761) * 100)
         if engineSpeed == 0:
             engineLoad = 0
         else:
             engineLoad = (massAirflow * 60) / engineSpeed
-        data = {
-            'Time': time.time() - start_time,
+        
+        logdata = {
+            'Time': time.time(),
             'Boost Pressure': boostPressure,
             'Manifold Absolute Pressure': ManifoldAbsolutePressure,
             'Atmospheric Pressure': atmosphericPressure,
@@ -62,18 +60,30 @@ async def start_ssm2_logger():
             'Fuel Consumption': fuelConsumption,
             'Engine Load': engineLoad
         }
-        await log_queue.put(data)
-        lf.writerow(data)
+        await asyncio.sleep(0.001)
+
+# Write the data to the CSV File
+async def write_to_csv():
+    global logdata
+    logfile = open(logfile_location, 'w+')
+    logfileheaders = ['Time', 'Boost Pressure', 'Manifold Absolute Pressure', 'Atmospheric Pressure', 'Coolant Temperature', 'Air Fuel Ratio', 'Mass Airflow', 'Vehicle Speed', 'Engine Speed', 'Battery Voltage', 'Fuel Consumption', 'Engine Load']
+    lf = csv.DictWriter(logfile, fieldnames= logfileheaders)
+    lf.writeheader()
+    data = ""
+    while 'logdata' in globals():
+        if logdata != data:
+            data = logdata
+            lf.writerow(data)
         await asyncio.sleep(0.001)
 
 
 # WebSocket handler to send multiple values to connected clients
 async def websocket_handler(websocket):
+    global logdata
     try:
-        while True:
+        while 'logdata' in globals():
             # Read Last Line from 
             # Send the JSON data to the client
-            logdata = await log_queue.get()
             wsdata = {
                 'Boost': logdata.get('Boost Pressure'),
                 'CoolentTemp': logdata.get('Coolant Temperature'),
@@ -86,7 +96,7 @@ async def websocket_handler(websocket):
 
             # Print the sent data for debugging
             # print(f"Sent: {data}")
-            await asyncio.sleep(0.007)
+            await asyncio.sleep(0.001)
             # Wait for 1 second before sending the next set of values
     except websockets.ConnectionClosedOK:
         print("Client disconnected cleanly")
@@ -127,9 +137,9 @@ async def main():
     http_task = asyncio.create_task(start_http_server()) # HTTP server
     SSM2_logger_task = asyncio.create_task(start_ssm2_logger())  # SSM2 Logger 
     websocket_task = asyncio.create_task(start_websocket_server())  # WebSocket server
-    await asyncio.gather(websocket_task, http_task, SSM2_logger_task)
+    csv_task = asyncio.create_task(write_to_csv()) # CSV Writer
+    await asyncio.gather(websocket_task, http_task, SSM2_logger_task, csv_task)
 
 
 if __name__ == "__main__":
     asyncio.run(main())
-

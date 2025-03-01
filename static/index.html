@@ -75,7 +75,7 @@
         }
 
         // Establish a WebSocket connection to the server
-        const ws = new WebSocket('ws://subaru.local:8765');
+        const ws = new WebSocket('ws://10.42.0.1:8765');
 
         // Handle WebSocket connection open event
         ws.onopen = function() {
@@ -99,7 +99,7 @@
             document.getElementById('CoolentTemp').textContent = data.CoolentTemp;
             document.getElementById('AirFuel').textContent = data.AirFuel;
             document.getElementById('BatteryVoltage').textContent = data.BatteryVoltage;
-            // document.getElementById('EngineLoad').textContent = data.EngineLoad;
+            document.getElementById('EngineLoad').textContent = data.EngineLoad;
             document.getElementById('FuelConsumption').textContent = data.FuelConsumption;
         };
 

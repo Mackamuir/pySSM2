@@ -38,22 +38,22 @@ class PySSM2:
     def receive_packet(self, responseLength):
         response = self.ser.read(responseLength)
         # DEBUG
-        # print("---")
-        # print("Packet Read:")
-        # print(response[1])
-        # print(f"Returned Number of Bytes: {len(response)}")
-        # print(f"Expected Returned Number of Bytes: {responseLength}")
-        # print(f"Full Hex String: {' '.join(hex(n) for n in response)}")
-        # print(f"Start Byte: {hex(response[0])}")
-        # print(f"Destination Byte: {hex(response[1])}")
-        # print(f"Source Byte: {hex(response[2])}")
-        # print(f"Data Size Byte: {hex(response[3])}")
-        # print(f"Data Size Int: {response[3]}")
-        # datalen = int(response[3])
-        # print(f"Data Bytes Hex: {' '.join(hex(n) for n in response[4:4 + datalen])}")
-        # print(f"Data Bytes Int: {list(response[4:4 + datalen])}")
-        # print(f"Expected Checksum: {hex(self.calculate_checksum(response[:4 + datalen]))}")
-        # print(f"Returned Checksum: {response[4 + datalen: 5 + datalen].hex()}")
+        print("---")
+        print("Packet Read:")
+        print(response[1])
+        print(f"Returned Number of Bytes: {len(response)}")
+        print(f"Expected Returned Number of Bytes: {responseLength}")
+        print(f"Full Hex String: {' '.join(hex(n) for n in response)}")
+        print(f"Start Byte: {hex(response[0])}")
+        print(f"Destination Byte: {hex(response[1])}")
+        print(f"Source Byte: {hex(response[2])}")
+        print(f"Data Size Byte: {hex(response[3])}")
+        print(f"Data Size Int: {response[3]}")
+        datalen = int(response[3])
+        print(f"Data Bytes Hex: {' '.join(hex(n) for n in response[4:4 + datalen])}")
+        print(f"Data Bytes Int: {list(response[4:4 + datalen])}")
+        print(f"Expected Checksum: {hex(self.calculate_checksum(response[:4 + datalen]))}")
+        print(f"Returned Checksum: {response[4 + datalen: 5 + datalen].hex()}")
         # DEBUG
         if not response:
             raise Exception("No response received from ECU.")
@@ -89,7 +89,23 @@ class PySSM2:
         responseLength = len(addresses) + 6
         # Construct the command for reading single addresses using 0xA8.
         # Each address is packed as 3 bytes.
-        data = [0xA8, 0x01]  # Byte for reading single address + Pad Byte
+        data = [0xA8, 0x00]  # Byte for reading single address + single read mode byte
+        for address in addresses:
+            # Pack each address as a 3-byte integer (use the last 3 bytes of a 4-byte integer)
+            data += list(struct.pack('>I', address)[1:])  # Exclude the first byte (since we're only using 3 bytes)
+        # print("Read Single Address:")
+        return self.send_packet(data, responseLength)
+
+    def read_single_address_continuously(self, addresses):
+        """
+        Read values from one or more specific addresses.
+        Each address should be a 3-byte value.
+        """
+        # Calculate How long our response should be, Each address asked for should return 1 byte, add 6 bytes for all other packet data
+        responseLength = len(addresses) + 6
+        # Construct the command for reading single addresses using 0xA8.
+        # Each address is packed as 3 bytes.
+        data = [0xA8, 0x01]  # Byte for reading single address + continious read mode byte 
         for address in addresses:
             # Pack each address as a 3-byte integer (use the last 3 bytes of a 4-byte integer)
             data += list(struct.pack('>I', address)[1:])  # Exclude the first byte (since we're only using 3 bytes)
