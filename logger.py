@@ -36,7 +36,7 @@ async def start_ssm2_logger():
         vehicleSpeed = float(response[10])
         massAirflow = float(((response[11]<<8) | response[12]) / 100)
         boostPressure = ManifoldAbsolutePressure - atmosphericPressure
-        engineSpeed = float(round(((response[13]<<8) | response[14]) / 4))
+        engineSpeed = float(((response[13]<<8) | response[14]) / 4)
         if vehicleSpeed == 0:
             fuelConsumption = float((1) * ((massAirflow / airFuelRatio ) / 761 ) * 100)
         else:
