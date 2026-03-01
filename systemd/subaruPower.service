@@ -1,0 +1,12 @@
+[Unit]
+Description=Subaru Power Monitoring Service
+After=network.target
+
+[Service]
+Type=idle
+Restart=on-failure
+User=root
+ExecStart=/usr/bin/python3 /etc/pySSM2/powerMonitor.py
+
+[Install]
+WantedBy=multi-user.target
