@@ -43,17 +43,17 @@ async def start_ssm2_logger():
         # We request the length of our address list and then add 6 for heading and checksum bytes
         response = SSM2.receive_packet(len(addresses) + 6)
         # Do our calculations for the data
-        batteryVoltage = float("%.1f" % (response[5] * 0.08))
+        batteryVoltage = float(response[5] * 0.08)
         coolentTemperature = response[6] - 40 # Celcius
-        airFuelRatio = float("%.2f" % (response[7] / 128 * 14.7))
+        airFuelRatio = float(response[7] / 128 * 14.7)
         ManifoldAbsolutePressure = float(response[8] * 37 / 255)
         atmosphericPressure = float(response[9] * 37 / 255) # PSI
         vehicleSpeed = float(response[10])
-        massAirflow = float("%.2f" %  (((response[11]<<8) | response[12]) / 100))
-        boostPressure = "%.1f" % (ManifoldAbsolutePressure - atmosphericPressure)
-        engineSpeed = float(round(((response[13]<<8) | response[14]) / 4))
+        massAirflow = float(((response[11]<<8) | response[12]) / 100)
+        boostPressure = ManifoldAbsolutePressure - atmosphericPressure
+        engineSpeed = float(((response[13]<<8) | response[14]) / 4)
         if vehicleSpeed == 0:
-            fuelConsumption = "%.1f" % ((1) * ((massAirflow / airFuelRatio ) / 761 ) * 100)
+            fuelConsumption = float((1) * ((massAirflow / airFuelRatio ) / 761 ) * 100)
         else:
             fuelConsumption = "%.1f" % ((3600 / vehicleSpeed) * (( massAirflow / airFuelRatio ) / 761) * 100)
         if engineSpeed == 0:
@@ -63,16 +63,16 @@ async def start_ssm2_logger():
         
         logdata = {
             'Time': time.time(),
-            'Boost Pressure': boostPressure,
-            'Manifold Absolute Pressure': ManifoldAbsolutePressure,
-            'Atmospheric Pressure': atmosphericPressure,
+            'Boost Pressure': f"{boostPressure:.1f}",
+            'Manifold Absolute Pressure': f"{ManifoldAbsolutePressure:.2f}",
+            'Atmospheric Pressure': f"{atmosphericPressure:.3f}",
             'Coolant Temperature': coolentTemperature,
-            'Air Fuel Ratio': airFuelRatio,
-            'Mass Airflow': massAirflow,
+            'Air Fuel Ratio': f"{airFuelRatio:.2f}",
+            'Mass Airflow': f"{massAirflow:.2f}",
             'Vehicle Speed': vehicleSpeed,
             'Engine Speed': engineSpeed,
-            'Battery Voltage': batteryVoltage,
-            'Fuel Consumption': fuelConsumption,
+            'Battery Voltage': f"{batteryVoltage:.1f}",
+            'Fuel Consumption': f"{fuelConsumption:.1f}",
             'Engine Load': engineLoad
         }
         await asyncio.sleep(0.001)
