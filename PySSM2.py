@@ -1,6 +1,8 @@
 import serial
 import struct
 import time
+import xml.etree.ElementTree as ET
+from typing import Dict, Any, Optional, Tuple
 
 class PySSM2:
     def __init__(self, port, baudrate=4800, timeout=2):
@@ -159,22 +161,95 @@ class PySSM2:
         """
         self.ser.close()
 
+    def parse_ecu_parameters(xml_file: str) -> Dict[Tuple[int, int], Dict[str, Any]]:
+        """
+        Parse ECU parameters from an XML file and return a lookup dictionary.
+        
+        Args:
+            xml_file: Path to the XML file containing ECU parameter definitions
+            
+        Returns:
+            Dictionary mapping (byte_index, bit_index) tuples to parameter information
+        """
+        tree = ET.parse(xml_file)
+        root = tree.getroot()
+        
+        param_lookup = {}
+        
+        for param in root.findall("protocols/protocol/parameters/parameter"):
+            byte_index = param.get("ecubyteindex")
+            bit_index = param.get("ecubit")
+            
+            if byte_index is not None and bit_index is not None:
+                key = (int(byte_index), int(bit_index))
+                address_el = param.find("address")
+                
+                # Handle address and length
+                addresses = []
+                if address_el is not None:
+                    address = address_el.text
+                    length = address_el.get("length")
+                    if address is not None:
+                        addresses.append(address)
+                        if length is not None:
+                            # Convert hex address to integer, add 1, then convert back to hex
+                            try:
+                                addr_int = int(address, 16)
+                                next_addr_int = addr_int + 1
+                                next_address = f"0x{next_addr_int:06X}"
+                                addresses.append(next_address)
+                            except ValueError:
+                                pass  # Keep addresses as single item if conversion fails
+                
+                param_lookup[key] = {
+                    "id": param.get("id"),
+                    "name": param.get("name"),
+                    "desc": param.get("desc"),
+                    "addresses": addresses,
+                    "address length": len(addresses),
+                    "conversions": param.find("conversions")
+                }
+                
+                conversions = param.find("conversions")
+                if conversions is not None:
+                    for conv in conversions.findall("conversion"):
+                        param_lookup[key]["conversions"] = {
+                            "units": conv.get("units"),
+                            "expr": conv.get("expr"),
+                            "format": conv.get("format"),
+                            "gauge_min": conv.get("gauge_min"),
+                            "gauge_max": conv.get("gauge_max"),
+                            "gauge_step": conv.get("gauge_step"),
+                        }
+        
+        return param_lookup
 
+    def get_parameter_info(param_lookup: Dict[Tuple[int, int], Dict[str, Any]], byte_index: int, bit_index: int) -> Optional[Dict[str, Any]]:
+        """
+        Get parameter information for a specific byte and bit index.
+        
+        Args:
+            param_lookup: Dictionary of parameter information
+            byte_index: Byte index to look up
+            bit_index: Bit index to look up
+            
+        Returns:
+            Dictionary containing parameter information if found, None otherwise
+        """
+        return param_lookup.get((byte_index, bit_index))
 
-
-# print("---")
-# print("Packet Read:")
-# print(f"Returned Number of Bytes: {len(response)}")
-# print(f"Expected Returned Number of Bytes: {responseLength}")
-# print(" ".join(hex(n) for n in response))
-# print(f"Start Byte: {hex(response[0])}")
-# print(f"Destination Byte: {hex(response[1])}")
-# print(f"Source Byte: {hex(response[2])}")
-# print(f"Data Size Byte: {hex(response[3])}")
-# print(f"Data Size Int: {response[3]}")
-# datalen = int(response[3])
-# print(f"Data Bytes Hex: {" ".join(hex(n) for n in response[4:4 + datalen])}")
-# print(f"Data Bytes Int: {list(response[4:4 + datalen])}")
-# print(f"Calculated Checksum: {hex(self.calculate_checksum(response[:4 + datalen]))}")
-# print(f"Returned Checksum: {response[4 + datalen: 5 + datalen].hex()}")
-# DEBUG
+    def get_parameter_by_id(param_lookup: Dict[Tuple[int, int], Dict[str, Any]], param_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get parameter information by its ID.
+        
+        Args:
+            param_lookup: Dictionary of parameter information
+            param_id: ID of the parameter to look up
+            
+        Returns:
+            Dictionary containing parameter information if found, None otherwise
+        """
+        for param_info in param_lookup.values():
+            if param_info["id"] == param_id:
+                return param_info
+        return None

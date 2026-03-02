@@ -20,9 +20,24 @@ async def start_ssm2_logger():
     #Initalize the ECU
     SSM2.ecu_init()
     # start_time = time.time()
-    # Request our data from the ECU Continously 
-    # Battery Voltage, Coolant Temperature, A/F Sensor #1, Manifold Absolute Pressure, Atmospheric Pressure, Vehicle Speed, Mass Airflow, Engine Speed
-    addresses = [0x00001C, 0x000008, 0x000046, 0x00000D, 0x000023, 0x000010, 0x000013, 0x000014, 0x00000E, 0x00000F]
+    # Request our data from the ECU Continously
+    id_list = [
+        "P17", # Battery Voltage
+        "P2", # Coolant Temperature
+        "P58", # A/F Sensor #1
+        "P7", # Manifold Absolute Pressure
+        "P24", # Atmospheric Pressure
+        "P9", #  Vehicle Speed
+        "P12", # Mass Airflow
+        "P8" # Engine Speed
+    ]
+
+    addresses = []
+    param_lookup = PySSM2.parse_ecu_parameters("logger.xml")
+    for id in id_list:
+        info = PySSM2.get_parameter_by_id(param_lookup, id)
+        addresses.extend(info["addresses"])
+    
     SSM2.read_single_address_continuously(addresses)
     while True:
         # We request the length of our address list and then add 6 for heading and checksum bytes
@@ -40,7 +55,7 @@ async def start_ssm2_logger():
         if vehicleSpeed == 0:
             fuelConsumption = "%.1f" % ((1) * ((massAirflow / airFuelRatio ) / 761 ) * 100)
         else:
-            fuelConsumption = "%.1f" % ((3600 / vehicleSpeed) * ((massAirflow / airFuelRatio ) / 761) * 100)
+            fuelConsumption = "%.1f" % ((3600 / vehicleSpeed) * (( massAirflow / airFuelRatio ) / 761) * 100)
         if engineSpeed == 0:
             engineLoad = 0
         else:
