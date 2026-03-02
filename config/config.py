@@ -35,7 +35,7 @@ DISPLAY_HEIGHT = int(os.getenv('SSM2_DISPLAY_HEIGHT', '480'))
 DISPLAY_FPS = int(os.getenv('SSM2_DISPLAY_FPS', '30'))
 
 # Run in fullscreen mode
-DISPLAY_FULLSCREEN = os.getenv('SSM2_DISPLAY_FULLSCREEN', 'false').lower() == 'true'
+DISPLAY_FULLSCREEN = os.getenv('SSM2_DISPLAY_FULLSCREEN', 'true').lower() == 'true'
 
 # Path to digital font file
 _CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))

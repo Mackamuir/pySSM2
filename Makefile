@@ -1,4 +1,4 @@
-.PHONY: help install install-pip check-deps deploy uninstall start stop restart status logs clean test validate dev
+.PHONY: help install uninstall start stop restart status logs clean
 
 # Default target
 help:
@@ -6,12 +6,19 @@ help:
 	@echo "=================================="
 	@echo ""
 	@echo "Installation:"
-	@echo "  make install        - Install dependencies via apt (recommended)"
+	@echo "  make install        - Install dependencies and deploy to /etc/pySSM2"
 	@echo "  make uninstall      - Remove systemd service and /etc/pySSM2"
+	@echo ""
+	@echo "Service:"
+	@echo "  make start          - Start the logger service"
+	@echo "  make stop           - Stop the logger service"
+	@echo "  make restart        - Restart the logger service"
+	@echo "  make status         - Show service status"
+	@echo "  make logs           - Tail service logs"
 
 # Installation
 install:
-	@echo "Installing Python dependencies via apt..."
+	@echo "Installing pySSM2..."
 	@if [ "$$(id -u)" -ne 0 ]; then \
 		echo "ERROR: Must run as root. Use: sudo make install"; \
 		exit 1; \
@@ -19,36 +26,41 @@ install:
 	@echo "Updating package list..."
 	apt-get update
 	@echo "Installing Python packages..."
-	apt-get install -y python3-serial python3-aiohttp python3-websockets
+	apt-get install -y python3-serial python3-pygame
 	@echo "Dependencies installed"
-	@echo "Installing required files to /etc/pySSM2..."
+	@echo ""
+	@echo "Deploying files to /etc/pySSM2..."
 	@echo "Creating directories..."
 	mkdir -p /etc/pySSM2
+	mkdir -p /etc/pySSM2/gui
+	mkdir -p /etc/pySSM2/assets/fonts
 	mkdir -p /var/log/subaru
 	mkdir -p /var/log/subaru/python
-	@echo "Copying files..."
+	@echo "Copying source files..."
 	cp src/logger.py /etc/pySSM2/logger.py
 	cp src/PySSM2.py /etc/pySSM2/PySSM2.py
-	cp config/config.py /etc/pySSM2/config.py
 	cp src/ecu_capabilities.py /etc/pySSM2/ecu_capabilities.py
-	cp -r static /etc/pySSM2/
+	cp config/config.py /etc/pySSM2/config.py
+	cp src/gui/__init__.py /etc/pySSM2/gui/__init__.py
+	cp src/gui/app.py /etc/pySSM2/gui/app.py
+	cp src/gui/dashboard.py /etc/pySSM2/gui/dashboard.py
+	cp src/gui/theme.py /etc/pySSM2/gui/theme.py
+	cp assets/fonts/DS-DIGII.TTF /etc/pySSM2/assets/fonts/DS-DIGII.TTF
+	@if [ -f src/powerMonitor.py ]; then \
+		cp src/powerMonitor.py /etc/pySSM2/powerMonitor.py; \
+	fi
 	@echo "Setting permissions..."
 	chmod +x /etc/pySSM2/logger.py
-	chmod +x /etc/pySSM2/PySSM2.py
-	chmod +x /etc/pySSM2/config.py
-	chmod +x /etc/pySSM2/ecu_capabilities.py
-
 	chown -R root:root /etc/pySSM2
 	chmod 755 /var/log/subaru
 	@echo "Installing systemd service..."
 	cp systemd/subaruLogger.service /etc/systemd/system/
-	@if [ -f src/powerMonitor.py ]; then \
-		cp src/powerMonitor.py /etc/pySSM2/powerMonitor.py; \
-		chmod +x /etc/pySSM2/powerMonitor.py; \
+	@if [ -f systemd/subaruPower.service ]; then \
 		cp systemd/subaruPower.service /etc/systemd/system/; \
 	fi
 	systemctl daemon-reload
-	@echo "Install done"
+	@echo ""
+	@echo "Install complete. Start with: sudo make start"
 
 uninstall:
 	@echo "Uninstalling pySSM2..."
@@ -72,3 +84,18 @@ uninstall:
 	@echo ""
 	@echo "Note: Log files in /var/log/subaru/ were preserved"
 	@echo "To remove logs: sudo rm -rf /var/log/subaru/"
+
+start:
+	systemctl start subaruLogger.service
+
+stop:
+	systemctl stop subaruLogger.service
+
+restart:
+	systemctl restart subaruLogger.service
+
+status:
+	systemctl status subaruLogger.service
+
+logs:
+	journalctl -u subaruLogger.service -f
