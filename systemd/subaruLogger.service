@@ -6,6 +6,9 @@ After=network.target
 Type=idle
 Restart=on-failure
 User=root
+Environment=XDG_RUNTIME_DIR=/run/user/0
+Environment=SDL_VIDEODRIVER=kmsdrm
+Environment=SDL_AUDIODRIVER=dummy
 ExecStart=/usr/bin/python3 /etc/pySSM2/logger.py
 
 [Install]
