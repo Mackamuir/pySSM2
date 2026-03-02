@@ -1,6 +1,4 @@
 import asyncio
-import websockets
-from aiohttp import web
 import json
 import PySSM2
 import time
@@ -11,6 +9,9 @@ from typing import Dict, Any
 
 # Import configuration
 import config
+
+# Import display
+from gui import run_display
 
 # ============================================================================
 # LOGGING SETUP
@@ -261,7 +262,7 @@ async def start_ssm2_logger(csv_queue: asyncio.Queue, latest_data: Dict[str, Any
 
     Args:
         csv_queue: Queue for CSV writer (preserves order, never drops data)
-        latest_data: Shared dict for WebSocket (always latest, can skip old data)
+        latest_data: Shared dict for display (always latest, can skip old data)
     """
     logger.info("Starting SSM2 logger...")
 
@@ -319,7 +320,7 @@ async def start_ssm2_logger(csv_queue: asyncio.Queue, latest_data: Dict[str, Any
                         except asyncio.QueueEmpty:
                             pass
 
-                # Update latest data for WebSocket (always latest, no queue)
+                # Update latest data for display (always latest, no queue)
                 latest_data.clear()
                 latest_data.update(logdata)
 
@@ -409,100 +410,6 @@ async def write_to_csv(csv_queue: asyncio.Queue):
         logger.error(f"Unexpected error in CSV writer: {e}", exc_info=config.DEBUG_MODE)
 
 
-# WebSocket handler to send multiple values to connected clients
-async def websocket_handler(websocket, latest_data: Dict[str, Any]):
-    """
-    Handle WebSocket connection and stream data to client.
-    Uses shared dict for latest data (live view, skips old data).
-
-    Args:
-        websocket: WebSocket connection
-        latest_data: Shared dict containing most recent ECU data
-    """
-    client_addr = websocket.remote_address
-    logger.info(f"WebSocket client connected: {client_addr}")
-
-    try:
-        last_sent = None
-        while True:
-            try:
-                # Get the latest data (shared reference, always most recent)
-                if latest_data and latest_data != last_sent:
-                    # Build WebSocket payload using configured field mapping
-                    wsdata = {}
-                    for internal_name, ws_field in config.WEBSOCKET_FIELD_MAPPING.items():
-                        wsdata[ws_field] = latest_data.get(internal_name)
-
-                    await websocket.send(json.dumps(wsdata))
-                    last_sent = latest_data.copy()
-                    logger.debug(f"Sent data to {client_addr}")
-
-            except Exception as e:
-                logger.error(f"Error sending data to {client_addr}: {e}")
-
-            await asyncio.sleep(config.WEBSOCKET_SLEEP_INTERVAL)
-
-    except websockets.ConnectionClosedOK:
-        logger.info(f"Client {client_addr} disconnected cleanly")
-    except websockets.ConnectionClosedError as e:
-        logger.warning(f"Connection closed with error for {client_addr}: {e}")
-    except Exception as e:
-        logger.error(f"Unexpected error in WebSocket handler: {e}", exc_info=config.DEBUG_MODE)
-
-
-# Start WebSocket server
-async def start_websocket_server(latest_data: Dict[str, Any]):
-    """
-    Start WebSocket server for streaming data to clients.
-    Uses shared dict for live data (always shows latest, skips old readings).
-
-    Args:
-        latest_data: Shared dict containing most recent ECU data
-    """
-    logger.info(f"Starting WebSocket server on {config.WEBSOCKET_HOST}:{config.WEBSOCKET_PORT}")
-
-    async def handler(websocket):
-        await websocket_handler(websocket, latest_data)
-
-    async with websockets.serve(handler, config.WEBSOCKET_HOST, config.WEBSOCKET_PORT):
-        await asyncio.Future()  # Run forever
-
-# Start HTTP server
-async def handle_root(request):
-    """Serve the main index.html page."""
-    return web.FileResponse(config.INDEX_HTML_PATH)
-
-
-async def start_http_server():
-    """
-    Start HTTP server for serving web interface and log files.
-    """
-    logger.info(f"Starting HTTP server on {config.HTTP_HOST}:{config.HTTP_PORT}")
-
-    app = web.Application()
-
-    # Handle root ('/') to serve index.html
-    app.router.add_get('/', handle_root)
-
-    # Serve the entire 'static' folder for all other files (e.g., CSS, JS)
-    app.router.add_static('/', config.STATIC_DIRECTORY)
-
-    # Serve our log files for easy downloading
-    if config.ENABLE_CSV_LOGGING:
-        app.router.add_static('/logs', config.LOG_DIRECTORY)
-        logger.info(f"Log files available at http://{config.HTTP_HOST}:{config.HTTP_PORT}/logs/")
-
-    runner = web.AppRunner(app)
-    await runner.setup()
-    site = web.TCPSite(runner, config.HTTP_HOST, config.HTTP_PORT)
-    await site.start()
-
-    logger.info(f"HTTP server ready at http://{config.HTTP_HOST}:{config.HTTP_PORT}/")
-
-    # Keep running
-    await asyncio.Future()
-
-
 # Main function to run all services concurrently
 async def main():
     """
@@ -510,7 +417,7 @@ async def main():
 
     Data flow:
     - CSV queue: FIFO queue, preserves all data in order for accurate logging
-    - latest_data dict: Shared dict, always has newest data for live WebSocket view
+    - latest_data dict: Shared dict, always has newest data for live display
     """
     logger.info("=" * 70)
     logger.info("pySSM2 Logger Starting")
@@ -519,20 +426,25 @@ async def main():
     # Create CSV queue (FIFO - preserves order, never drops data unless full)
     csv_queue = asyncio.Queue(maxsize=1000)
 
-    # Create shared dict for latest data (WebSocket always gets newest, skips old)
+    # Create shared dict for latest data (display always gets newest, skips old)
     latest_data: Dict[str, Any] = {}
 
     # Create tasks for all services
     tasks = [
-        asyncio.create_task(start_http_server(), name="HTTP Server"),
+        asyncio.create_task(run_display(
+            latest_data=latest_data,
+            display_width=config.DISPLAY_WIDTH,
+            display_height=config.DISPLAY_HEIGHT,
+            fullscreen=config.DISPLAY_FULLSCREEN,
+            target_fps=config.DISPLAY_FPS,
+        ), name="Display"),
         asyncio.create_task(start_ssm2_logger(csv_queue, latest_data), name="SSM2 Logger"),
-        asyncio.create_task(start_websocket_server(latest_data), name="WebSocket Server"),
         asyncio.create_task(write_to_csv(csv_queue), name="CSV Writer"),
     ]
 
     logger.info(f"Started {len(tasks)} services")
+    logger.info("Display: pygame dashboard")
     logger.info("CSV: Queue-based (preserves order)")
-    logger.info("WebSocket: Dict-based (always latest)")
 
     try:
         # Run all tasks concurrently

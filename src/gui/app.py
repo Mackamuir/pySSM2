@@ -1,0 +1,111 @@
+"""
+Main pygame application for pySSM2.
+Runs as an async coroutine alongside the ECU reader and CSV writer.
+"""
+
+import asyncio
+import time
+import pygame
+from typing import Dict, Any
+from gui.dashboard import Dashboard
+
+
+class App:
+    """
+    Main pygame application with screen stack for future multi-screen support.
+
+    Runs in the asyncio event loop by yielding between frames.
+    """
+
+    def __init__(self, latest_data, display_width, display_height,
+                 fullscreen=False, target_fps=30):
+        pygame.init()
+        pygame.display.set_caption("pySSM2 Dashboard")
+
+        flags = 0
+        if fullscreen:
+            flags |= pygame.FULLSCREEN
+
+        self.screen = pygame.display.set_mode((display_width, display_height), flags)
+        self.latest_data = latest_data
+        self.running = True
+        self.target_fps = target_fps
+        self.display_width = display_width
+        self.display_height = display_height
+
+        # Time tracking for animations and peak decay
+        self.start_time = time.time()
+        self.last_time = self.start_time
+
+        # Screen stack: bottom is dashboard, menus push on top
+        dashboard = Dashboard(display_width, display_height)
+        self.screens = [dashboard]
+
+    @property
+    def active_screen(self):
+        return self.screens[-1] if self.screens else None
+
+    def push_screen(self, screen):
+        """Push a new screen on top (for menus, settings, etc.)."""
+        self.screens.append(screen)
+
+    def pop_screen(self):
+        """Pop back to previous screen."""
+        if len(self.screens) > 1:
+            return self.screens.pop()
+
+    async def run(self):
+        """Main async game loop."""
+        while self.running:
+            # Time tracking
+            now = time.time()
+            t = now - self.start_time
+            dt = now - self.last_time
+            self.last_time = now
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+                    break
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        if len(self.screens) > 1:
+                            self.pop_screen()
+                        else:
+                            self.running = False
+                    elif event.key == pygame.K_q:
+                        self.running = False
+                    elif event.key == pygame.K_F11:
+                        pygame.display.toggle_fullscreen()
+                if self.active_screen:
+                    self.active_screen.handle_event(event)
+
+            # Update active screen with latest ECU data
+            if self.active_screen:
+                self.active_screen.update(self.latest_data)
+
+            # Render
+            if self.active_screen:
+                self.active_screen.draw(self.screen, t, dt)
+            pygame.display.flip()
+
+            # Yield to asyncio event loop
+            await asyncio.sleep(1 / self.target_fps)
+
+        pygame.quit()
+
+
+async def run_display(latest_data: Dict[str, Any], display_width=800, display_height=480,
+                      fullscreen=False, target_fps=30):
+    """
+    Entry point coroutine for the display.
+    Called from logger.py main().
+    """
+    app = App(
+        latest_data=latest_data,
+        display_width=display_width,
+        display_height=display_height,
+        fullscreen=fullscreen,
+        target_fps=target_fps,
+    )
+    await app.run()

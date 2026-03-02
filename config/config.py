@@ -24,20 +24,23 @@ SERIAL_TIMEOUT = int(os.getenv('SSM2_TIMEOUT', '2'))
 
 
 # ============================================================================
-# NETWORK CONFIGURATION
+# DISPLAY CONFIGURATION
 # ============================================================================
 
-# WebSocket server host (0.0.0.0 = all interfaces)
-WEBSOCKET_HOST = os.getenv('SSM2_WS_HOST', '0.0.0.0')
+# Display resolution (800x480 is common for Raspberry Pi 7" touchscreen)
+DISPLAY_WIDTH = int(os.getenv('SSM2_DISPLAY_WIDTH', '800'))
+DISPLAY_HEIGHT = int(os.getenv('SSM2_DISPLAY_HEIGHT', '480'))
 
-# WebSocket server port
-WEBSOCKET_PORT = int(os.getenv('SSM2_WS_PORT', '8765'))
+# Target frames per second for display updates
+DISPLAY_FPS = int(os.getenv('SSM2_DISPLAY_FPS', '30'))
 
-# HTTP server host (0.0.0.0 = all interfaces)
-HTTP_HOST = os.getenv('SSM2_HTTP_HOST', '0.0.0.0')
+# Run in fullscreen mode
+DISPLAY_FULLSCREEN = os.getenv('SSM2_DISPLAY_FULLSCREEN', 'false').lower() == 'true'
 
-# HTTP server port
-HTTP_PORT = int(os.getenv('SSM2_HTTP_PORT', '80'))
+# Path to digital font file
+_CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.normpath(os.path.join(_CONFIG_DIR, '..'))
+FONT_PATH = os.getenv('SSM2_FONT_PATH', os.path.join(_PROJECT_ROOT, 'assets', 'fonts', 'DS-DIGII.TTF'))
 
 
 # ============================================================================
@@ -46,12 +49,6 @@ HTTP_PORT = int(os.getenv('SSM2_HTTP_PORT', '80'))
 
 # Directory for CSV log files
 LOG_DIRECTORY = os.getenv('SSM2_LOG_DIR', '/var/log/subaru/')
-
-# Directory containing static web files
-STATIC_DIRECTORY = os.getenv('SSM2_STATIC_DIR', '/etc/pySSM2/static')
-
-# Path to index.html
-INDEX_HTML_PATH = os.getenv('SSM2_INDEX_HTML', '/etc/pySSM2/static/index.html')
 
 
 # ============================================================================
@@ -93,25 +90,6 @@ LOGGER_SLEEP_INTERVAL = float(os.getenv('SSM2_LOGGER_SLEEP', '0.001'))
 # Sleep interval in CSV writer loop (seconds)
 CSV_WRITER_SLEEP_INTERVAL = float(os.getenv('SSM2_CSV_SLEEP', '0.001'))
 
-# Sleep interval in WebSocket loop (seconds)
-WEBSOCKET_SLEEP_INTERVAL = float(os.getenv('SSM2_WS_SLEEP', '0.001'))
-
-
-# ============================================================================
-# WEBSOCKET DATA MAPPING
-# ============================================================================
-# Maps internal parameter names to WebSocket field names
-# This allows customizing the WebSocket payload structure without changing core code
-
-WEBSOCKET_FIELD_MAPPING = {
-    'Boost Pressure': 'Boost',
-    'Coolant Temperature': 'CoolentTemp',
-    'Air Fuel Ratio': 'AirFuel',
-    'Battery Voltage': 'BatteryVoltage',
-    'Fuel Consumption': 'FuelConsumption',
-    'Engine Load': 'EngineLoad',
-}
-
 
 # ============================================================================
 # VALIDATION
@@ -125,7 +103,6 @@ def validate_config():
     import os.path
 
     # Check that base log directory exists if CSV logging is enabled
-    # Subdirectories (YYYY/Month/DD/) will be created automatically
     if ENABLE_CSV_LOGGING and not os.path.exists(LOG_DIRECTORY):
         raise ValueError(
             f"CSV logging enabled but base log directory does not exist: {LOG_DIRECTORY}\n"
@@ -133,22 +110,17 @@ def validate_config():
             f"Note: Date-based subdirectories (YYYY/Month/DD/) will be created automatically."
         )
 
-    # Check that static directory exists
-    if not os.path.exists(STATIC_DIRECTORY):
-        print(f"WARNING: Static directory does not exist: {STATIC_DIRECTORY}")
-        print("Web interface may not work correctly.")
+    # Check that font file exists
+    if not os.path.exists(FONT_PATH):
+        print(f"WARNING: Font file not found: {FONT_PATH}")
+        print("Dashboard will fall back to system font.")
 
-    # Validate port numbers
-    if not (1 <= WEBSOCKET_PORT <= 65535):
-        raise ValueError(f"Invalid WebSocket port: {WEBSOCKET_PORT}")
+    # Validate display settings
+    if DISPLAY_WIDTH < 320 or DISPLAY_HEIGHT < 240:
+        raise ValueError(f"Display resolution too small: {DISPLAY_WIDTH}x{DISPLAY_HEIGHT} (minimum 320x240)")
 
-    if not (1 <= HTTP_PORT <= 65535):
-        raise ValueError(f"Invalid HTTP port: {HTTP_PORT}")
-
-    # Warn if running on privileged port without root
-    if HTTP_PORT < 1024 and os.geteuid() != 0:
-        print(f"WARNING: HTTP port {HTTP_PORT} requires root privileges")
-        print("Run with sudo or change HTTP_PORT to >= 1024")
+    if not (1 <= DISPLAY_FPS <= 120):
+        raise ValueError(f"Invalid display FPS: {DISPLAY_FPS} (must be 1-120)")
 
     return True
 
@@ -272,14 +244,13 @@ def print_config():
     print("=" * 70)
     print(f"Serial Port:        {SERIAL_PORT}")
     print(f"Baud Rate:          {SERIAL_BAUDRATE}")
-    print(f"WebSocket:          {WEBSOCKET_HOST}:{WEBSOCKET_PORT}")
-    print(f"HTTP Server:        {HTTP_HOST}:{HTTP_PORT}")
+    print(f"Display:            {DISPLAY_WIDTH}x{DISPLAY_HEIGHT} @ {DISPLAY_FPS}fps")
+    print(f"Fullscreen:         {'Yes' if DISPLAY_FULLSCREEN else 'No'}")
     print(f"CSV Logging:        {'Enabled' if ENABLE_CSV_LOGGING else 'Disabled'}")
     if ENABLE_CSV_LOGGING:
         print(f"Log Directory:      {LOG_DIRECTORY}")
         print(f"Current Log File:   {get_log_file_path()}")
         print(f"Log Structure:      YYYY/MonthName/DD/")
-    print(f"Static Files:       {STATIC_DIRECTORY}")
     print(f"Debug Mode:         {'Enabled' if DEBUG_MODE else 'Disabled'}")
     print(f"Log Level:          {LOG_LEVEL}")
     print("=" * 70)
