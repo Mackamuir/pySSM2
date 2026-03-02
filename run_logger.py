@@ -11,6 +11,7 @@ to /etc/pySSM2/ where they can import each other directly.
 
 import sys
 import os
+import asyncio
 
 # Add src and config directories to Python path
 project_root = os.path.dirname(os.path.abspath(__file__))
@@ -21,4 +22,7 @@ sys.path.insert(0, os.path.join(project_root, 'config'))
 import logger
 
 if __name__ == '__main__':
-    logger.main()
+    try:
+        asyncio.run(logger.main())
+    except KeyboardInterrupt:
+        pass
