@@ -17,14 +17,25 @@ class App:
     Runs in the asyncio event loop by yielding between frames.
     """
 
-    def __init__(self, latest_data, display_width, display_height,
+    def __init__(self, latest_data, display_width=None, display_height=None,
                  fullscreen=False, target_fps=30):
         pygame.init()
         pygame.display.set_caption("pySSM2 Dashboard")
 
-        flags = 0
+        # Auto-detect screen size if not explicitly provided
+        info = pygame.display.Info()
+        screen_w, screen_h = info.current_w, info.current_h
+
         if fullscreen:
-            flags |= pygame.FULLSCREEN
+            # Always use full native resolution in fullscreen
+            display_width = screen_w
+            display_height = screen_h
+            flags = pygame.FULLSCREEN
+        else:
+            # Use provided size, or fall back to screen size with a margin
+            display_width = display_width or screen_w
+            display_height = display_height or screen_h
+            flags = pygame.RESIZABLE
 
         self.screen = pygame.display.set_mode((display_width, display_height), flags)
         self.latest_data = latest_data
@@ -77,6 +88,14 @@ class App:
                         self.running = False
                     elif event.key == pygame.K_F11:
                         pygame.display.toggle_fullscreen()
+                if event.type == pygame.VIDEORESIZE:
+                    self.display_width = event.w
+                    self.display_height = event.h
+                    self.screen = pygame.display.set_mode(
+                        (event.w, event.h), pygame.RESIZABLE)
+                    # Rebuild dashboard at new size
+                    dashboard = Dashboard(event.w, event.h)
+                    self.screens = [dashboard]
                 if self.active_screen:
                     self.active_screen.handle_event(event)
 
