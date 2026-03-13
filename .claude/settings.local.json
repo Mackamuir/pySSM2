@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(ls /c/Users/mack/Documents/Code/pySSM2/*.py)",
+      "Bash(pip install pygame)",
+      "Bash(timeout 8 python test_gui.py)",
+      "Bash(timeout 5 python -c \":*)",
+      "Bash(python -c \":*)",
+      "Bash(timeout 6 python mock_gui.py)"
+    ]
+  }
+}
