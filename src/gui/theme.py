@@ -12,7 +12,7 @@ try:
 except (ImportError, AttributeError):
     import os
     _FONT_PATH = os.path.normpath(
-        os.path.join('etc', 'pySSM2', 'assets', 'fonts', 'DS-DIGII.TTF'))
+        os.path.join('/','etc', 'pySSM2', 'assets', 'fonts', 'DS-DIGII.TTF'))
 
 # ============================================================================
 # COLORS — Aqua/cyan theme
