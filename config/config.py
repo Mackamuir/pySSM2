@@ -40,7 +40,7 @@ DISPLAY_FULLSCREEN = os.getenv('SSM2_DISPLAY_FULLSCREEN', 'true').lower() == 'tr
 # Path to digital font file
 _CONFIG_DIR = os.path.dirname(os.path.abspath(__file__))
 _PROJECT_ROOT = os.path.normpath(os.path.join(_CONFIG_DIR, '..'))
-FONT_PATH = os.getenv('SSM2_FONT_PATH', os.path.join(_PROJECT_ROOT, 'assets', 'fonts', 'DS-DIGII.TTF'))
+FONT_PATH = os.getenv('SSM2_FONT_PATH', os.path.join('/','etc', 'pySSM2', 'assets', 'fonts', 'DS-DIGII.TTF'))
 
 
 # ============================================================================
