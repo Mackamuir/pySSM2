@@ -1,7 +1,7 @@
 [Unit]
 Description=Subaru Engine Logging Service
-After=graphical-session.target
-Wants=graphical-session.target
+After=graphical.target display-manager.service
+Wants=graphical.target
 
 [Service]
 Type=idle
@@ -13,4 +13,4 @@ Environment=SDL_AUDIODRIVER=dummy
 ExecStart=/usr/bin/python3 /etc/pySSM2/logger.py
 
 [Install]
-WantedBy=graphical-session.target
+WantedBy=graphical.target
