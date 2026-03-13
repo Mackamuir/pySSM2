@@ -51,7 +51,7 @@ install:
 	fi
 	@echo "Setting permissions..."
 	chmod +x /etc/pySSM2/logger.py
-	chown -R pi:pi /etc/pySSM2
+	chown -R mack:mack /etc/pySSM2
 	chmod 755 /var/log/subaru
 	@echo "Installing systemd service..."
 	cp systemd/subaruLogger.service /etc/systemd/system/
