@@ -11,9 +11,8 @@ try:
     _FONT_PATH = config.FONT_PATH
 except (ImportError, AttributeError):
     import os
-    _THEME_DIR = os.path.dirname(os.path.abspath(__file__))
     _FONT_PATH = os.path.normpath(
-        os.path.join(_THEME_DIR, '..', '..', 'assets', 'fonts', 'DS-DIGII.TTF'))
+        os.path.join('etc', 'pySSM2', 'assets', 'fonts', 'DS-DIGII.TTF'))
 
 # ============================================================================
 # COLORS — Aqua/cyan theme

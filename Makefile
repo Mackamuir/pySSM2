@@ -1,5 +1,11 @@
 .PHONY: help install uninstall start stop restart status logs clean
 
+# Detect current user and Wayland environment automatically
+CURRENT_USER  := $(shell whoami)
+CURRENT_UID   := $(shell id -u)
+WAYLAND_SOCK  := $(shell ls /run/user/$(CURRENT_UID)/wayland-* 2>/dev/null | head -1)
+WAYLAND_DISP  := $(if $(WAYLAND_SOCK),$(notdir $(WAYLAND_SOCK)),wayland-1)
+
 # Default target
 help:
 	@echo "pySSM2 Logger - Makefile Commands"
@@ -19,77 +25,76 @@ help:
 # Installation
 install:
 	@echo "Installing pySSM2..."
-	@if [ "$$(id -u)" -ne 0 ]; then \
-		echo "ERROR: Must run as root. Use: sudo make install"; \
-		exit 1; \
-	fi
+	@echo "  User:            $(CURRENT_USER) (uid=$(CURRENT_UID))"
+	@echo "  Wayland display: $(WAYLAND_DISP)"
+	@echo ""
 	@echo "Updating package list..."
-	apt-get update
+	sudo apt-get update
 	@echo "Installing Python packages..."
-	apt-get install -y python3-serial python3-pygame
+	sudo apt-get install -y python3-serial python3-pygame
 	@echo "Dependencies installed"
 	@echo ""
 	@echo "Deploying files to /etc/pySSM2..."
-	@echo "Creating directories..."
-	mkdir -p /etc/pySSM2
-	mkdir -p /etc/pySSM2/gui
-	mkdir -p /etc/pySSM2/assets/fonts
-	mkdir -p /var/log/subaru
-	mkdir -p /var/log/subaru/python
+	sudo mkdir -p /etc/pySSM2/gui
+	sudo mkdir -p /etc/pySSM2/assets/fonts
+	sudo mkdir -p /var/log/subaru/python
 	@echo "Copying source files..."
-	cp src/logger.py /etc/pySSM2/logger.py
-	cp src/PySSM2.py /etc/pySSM2/PySSM2.py
-	cp src/ecu_capabilities.py /etc/pySSM2/ecu_capabilities.py
-	cp config/config.py /etc/pySSM2/config.py
-	cp src/gui/__init__.py /etc/pySSM2/gui/__init__.py
-	cp src/gui/app.py /etc/pySSM2/gui/app.py
-	cp src/gui/dashboard.py /etc/pySSM2/gui/dashboard.py
-	cp src/gui/theme.py /etc/pySSM2/gui/theme.py
-	cp assets/fonts/DS-DIGII.TTF /etc/pySSM2/assets/fonts/DS-DIGII.TTF
+	sudo cp src/logger.py /etc/pySSM2/logger.py
+	sudo cp src/PySSM2.py /etc/pySSM2/PySSM2.py
+	sudo cp src/ecu_capabilities.py /etc/pySSM2/ecu_capabilities.py
+	sudo cp config/config.py /etc/pySSM2/config.py
+	sudo cp src/gui/__init__.py /etc/pySSM2/gui/__init__.py
+	sudo cp src/gui/app.py /etc/pySSM2/gui/app.py
+	sudo cp src/gui/dashboard.py /etc/pySSM2/gui/dashboard.py
+	sudo cp src/gui/theme.py /etc/pySSM2/gui/theme.py
+	sudo cp assets/fonts/DS-DIGII.TTF /etc/pySSM2/assets/fonts/DS-DIGII.TTF
 	@if [ -f src/powerMonitor.py ]; then \
-		cp src/powerMonitor.py /etc/pySSM2/powerMonitor.py; \
+		sudo cp src/powerMonitor.py /etc/pySSM2/powerMonitor.py; \
 	fi
 	@echo "Setting permissions..."
-	chmod +x /etc/pySSM2/logger.py
-	chown -R mack:mack /etc/pySSM2
-	chmod 755 /var/log/subaru
-	@echo "Installing systemd service..."
-	cp systemd/subaruLogger.service /etc/systemd/system/
-	systemctl daemon-reload
+	sudo chmod +x /etc/pySSM2/logger.py
+	sudo chown -R $(CURRENT_USER):$(CURRENT_USER) /etc/pySSM2
+	sudo chmod 755 /var/log/subaru
+	@echo "Generating and installing systemd service..."
+	sed \
+		-e 's/__USER__/$(CURRENT_USER)/g' \
+		-e 's/__UID__/$(CURRENT_UID)/g' \
+		-e 's/__WAYLAND_DISPLAY__/$(WAYLAND_DISP)/g' \
+		systemd/subaruLogger.service > /tmp/subaruLogger.service
+	sudo cp /tmp/subaruLogger.service /etc/systemd/system/subaruLogger.service
+	rm /tmp/subaruLogger.service
+	sudo systemctl daemon-reload
 	@echo ""
-	@echo "Install complete. Start with: sudo make start"
+	@echo "Install complete!"
+	@echo "  User:            $(CURRENT_USER)"
+	@echo "  XDG_RUNTIME_DIR: /run/user/$(CURRENT_UID)"
+	@echo "  WAYLAND_DISPLAY: $(WAYLAND_DISP)"
+	@echo ""
+	@echo "Start with: make start"
 
 uninstall:
 	@echo "Uninstalling pySSM2..."
-	@if [ "$$(id -u)" -ne 0 ]; then \
-		echo "ERROR: Must run as root. Use: sudo make uninstall"; \
-		exit 1; \
-	fi
-	@echo "Stopping services..."
-	-systemctl stop subaruLogger.service
-	-systemctl stop subaruPower.service
-	@echo "Disabling services..."
-	-systemctl disable subaruLogger.service
-	-systemctl disable subaruPower.service
-	@echo "Removing systemd services..."
-	rm -f /etc/systemd/system/subaruLogger.service
-	rm -f /etc/systemd/system/subaruPower.service
-	systemctl daemon-reload
-	@echo "Removing files..."
-	rm -rf /etc/pySSM2
+	-sudo systemctl stop subaruLogger.service
+	-sudo systemctl stop subaruPower.service
+	-sudo systemctl disable subaruLogger.service
+	-sudo systemctl disable subaruPower.service
+	sudo rm -f /etc/systemd/system/subaruLogger.service
+	sudo rm -f /etc/systemd/system/subaruPower.service
+	sudo systemctl daemon-reload
+	sudo rm -rf /etc/pySSM2
 	@echo "Uninstall done"
 	@echo ""
 	@echo "Note: Log files in /var/log/subaru/ were preserved"
 	@echo "To remove logs: sudo rm -rf /var/log/subaru/"
 
 start:
-	systemctl start subaruLogger.service
+	sudo systemctl start subaruLogger.service
 
 stop:
-	systemctl stop subaruLogger.service
+	sudo systemctl stop subaruLogger.service
 
 restart:
-	systemctl restart subaruLogger.service
+	sudo systemctl restart subaruLogger.service
 
 status:
 	systemctl status subaruLogger.service

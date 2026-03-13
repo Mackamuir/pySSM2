@@ -6,9 +6,9 @@ Wants=graphical-session.target
 [Service]
 Type=idle
 Restart=on-failure
-User=pi
-Environment=XDG_RUNTIME_DIR=/run/user/1000
-Environment=WAYLAND_DISPLAY=wayland-0
+User=__USER__
+Environment=XDG_RUNTIME_DIR=/run/user/__UID__
+Environment=WAYLAND_DISPLAY=__WAYLAND_DISPLAY__
 Environment=SDL_AUDIODRIVER=dummy
 ExecStart=/usr/bin/python3 /etc/pySSM2/logger.py
 
