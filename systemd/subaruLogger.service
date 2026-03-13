@@ -1,15 +1,16 @@
 [Unit]
 Description=Subaru Engine Logging Service
-After=network.target
+After=graphical-session.target
+Wants=graphical-session.target
 
 [Service]
 Type=idle
 Restart=on-failure
-User=root
-Environment=XDG_RUNTIME_DIR=/run/user/0
-Environment=SDL_VIDEODRIVER=kmsdrm
+User=pi
+Environment=XDG_RUNTIME_DIR=/run/user/1000
+Environment=WAYLAND_DISPLAY=wayland-1
 Environment=SDL_AUDIODRIVER=dummy
 ExecStart=/usr/bin/python3 /etc/pySSM2/logger.py
 
 [Install]
-WantedBy=multi-user.target
+WantedBy=graphical-session.target

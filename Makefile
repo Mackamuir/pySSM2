@@ -51,13 +51,10 @@ install:
 	fi
 	@echo "Setting permissions..."
 	chmod +x /etc/pySSM2/logger.py
-	chown -R root:root /etc/pySSM2
+	chown -R pi:pi /etc/pySSM2
 	chmod 755 /var/log/subaru
 	@echo "Installing systemd service..."
 	cp systemd/subaruLogger.service /etc/systemd/system/
-	@if [ -f systemd/subaruPower.service ]; then \
-		cp systemd/subaruPower.service /etc/systemd/system/; \
-	fi
 	systemctl daemon-reload
 	@echo ""
 	@echo "Install complete. Start with: sudo make start"
