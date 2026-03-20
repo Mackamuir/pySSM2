@@ -20,19 +20,19 @@ except (ImportError, AttributeError):
 
 BG              = (0, 0, 0)
 AQUA            = (0, 255, 255)
-AQUA_MED        = (0, 160, 180)
-AQUA_DIM        = (0, 60, 70)
-AQUA_OFF        = (0, 18, 22)
-PANEL_BG        = (4, 8, 10)
-PANEL_BORDER    = (0, 80, 90)
-LABEL_COLOR     = (0, 140, 160)
-UNIT_COLOR      = (0, 180, 200)
-WARN            = (255, 50, 20)
-WARN_OFF        = (35, 10, 6)
+AQUA_MED        = (0, 200, 220)
+AQUA_DIM        = (0, 120, 140)
+AQUA_OFF        = (0, 35, 42)
+PANEL_BG        = (6, 14, 18)
+PANEL_BORDER    = (0, 130, 150)
+LABEL_COLOR     = (0, 200, 220)
+UNIT_COLOR      = (0, 220, 240)
+WARN            = (255, 60, 25)
+WARN_OFF        = (55, 18, 10)
 
-# Peak hold colors (half intensity)
-AQUA_PEAK       = (0, 128, 128)
-WARN_PEAK       = (128, 25, 10)
+# Peak hold colors (higher intensity for visibility)
+AQUA_PEAK       = (0, 180, 180)
+WARN_PEAK       = (180, 40, 15)
 
 
 # ============================================================================

@@ -299,12 +299,12 @@ class Dashboard:
 
         # Fonts — sizes scale with the display
         s = self.scale
-        self.f_big    = load_font(max(16, round(64 * s)))
-        self.f_value  = load_font(max(12, round(36 * s)))
-        self.f_label  = load_font(max(8, round(16 * s)))
-        self.f_unit   = load_font(max(8, round(14 * s)))
-        self.f_small  = load_font(max(8, round(12 * s)))
-        self.f_footer = load_font(max(8, round(13 * s)))
+        self.f_big    = load_font(max(20, round(76 * s)))
+        self.f_value  = load_font(max(14, round(44 * s)))
+        self.f_label  = load_font(max(10, round(20 * s)))
+        self.f_unit   = load_font(max(10, round(18 * s)))
+        self.f_small  = load_font(max(10, round(15 * s)))
+        self.f_footer = load_font(max(10, round(16 * s)))
 
         # Peak trackers (one per gauge)
         self.peaks = {}
