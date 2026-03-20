@@ -267,10 +267,23 @@ async def start_ssm2_logger(csv_queue: asyncio.Queue, latest_data: Dict[str, Any
     logger.info("Starting SSM2 logger...")
 
     try:
+        # Auto-scan for K-Line adapter (run in executor so display keeps updating)
+        logger.info("Scanning for K-Line adapter...")
+        loop = asyncio.get_event_loop()
+        port = await loop.run_in_executor(
+            None,
+            lambda: PySSM2.PySSM2.scan_for_adapter(
+                baudrate=config.SERIAL_BAUDRATE,
+                timeout=config.SERIAL_TIMEOUT,
+                status=latest_data,
+            ),
+        )
+        logger.info(f"K-Line adapter found on {port}")
+
         # Initialize PySSM2
-        logger.info(f"Connecting to ECU on {config.SERIAL_PORT} at {config.SERIAL_BAUDRATE} baud")
+        logger.info(f"Connecting to ECU on {port} at {config.SERIAL_BAUDRATE} baud")
         SSM2 = PySSM2.PySSM2(
-            config.SERIAL_PORT,
+            port,
             baudrate=config.SERIAL_BAUDRATE,
             timeout=config.SERIAL_TIMEOUT
         )

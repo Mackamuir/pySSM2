@@ -8,6 +8,7 @@ import time
 import pygame
 from typing import Dict, Any
 from gui.dashboard import Dashboard
+from gui.popup import Popup
 
 
 class App:
@@ -51,6 +52,10 @@ class App:
         # Screen stack: bottom is dashboard, menus push on top
         dashboard = Dashboard(display_width, display_height)
         self.screens = [dashboard]
+
+        # Popup overlay (shown when latest_data contains '_status')
+        self.popup = None
+        self._last_status = None
 
     @property
     def active_screen(self):
@@ -106,6 +111,24 @@ class App:
             # Render
             if self.active_screen:
                 self.active_screen.draw(self.screen, t, dt)
+
+            # Popup overlay driven by _status in latest_data
+            status = self.latest_data.get('_status')
+            if status:
+                title = status.get('title', '')
+                message = status.get('message', '')
+                status_key = (title, self.display_width, self.display_height)
+                if status_key != self._last_status:
+                    self.popup = Popup(self.display_width, self.display_height,
+                                       title=title, message=message)
+                    self._last_status = status_key
+                else:
+                    self.popup.message = message
+                self.popup.draw(self.screen, t)
+            else:
+                self.popup = None
+                self._last_status = None
+
             pygame.display.flip()
 
             # Yield to asyncio event loop

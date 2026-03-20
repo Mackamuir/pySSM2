@@ -1,4 +1,5 @@
 import serial
+import serial.tools.list_ports
 import struct
 import time
 from ecu_capabilities import parse_ecu_capabilities
@@ -197,6 +198,64 @@ class PySSM2:
         """
         self.ser.close()
 
+    @staticmethod
+    def scan_for_adapter(baudrate=4800, timeout=2, scan_interval=3, status=None):
+        """
+        Loop through available serial ports and attempt an ECU init on each one.
+        Returns the port string of the first adapter that responds.
+        Keeps scanning until an adapter is found.
+
+        Args:
+            status: Optional shared dict. If provided, sets status['_status']
+                    with {'title': ..., 'message': ...} for UI display.
+        """
+        def set_status(message):
+            print(message)
+            if status is not None:
+                status['_status'] = {'title': 'SCANNING', 'message': message}
+
+        def clear_status():
+            if status is not None:
+                status.pop('_status', None)
+
+        while True:
+            ports = serial.tools.list_ports.comports()
+            if not ports:
+                set_status("No serial ports found")
+                time.sleep(scan_interval)
+                continue
+
+            set_status(f"Scanning {len(ports)} port(s)...")
+            for port_info in ports:
+                port = port_info.device
+                set_status(f"Trying {port}...")
+                try:
+                    ser = serial.Serial(port, baudrate=baudrate, timeout=timeout)
+                    ser.flush()
+                    # Send ECU init command: header + dest + source + data_len + 0xBF + checksum
+                    packet = [0x80, 0x10, 0xF0, 0x01, 0xBF]
+                    checksum = sum(packet) & 0xFF
+                    packet.append(checksum)
+                    ser.write(bytearray(packet))
+                    # Read back echo + response (at least the echo of 6 bytes + some response)
+                    response = ser.read(128)
+                    ser.close()
+                    # We expect to get back our echo (6 bytes) plus an ECU response
+                    # A valid ECU response starts with 0x80 after the echo
+                    if len(response) > len(packet) and response[len(packet)] == 0x80:
+                        set_status(f"Found adapter on {port}")
+                        time.sleep(1)
+                        clear_status()
+                        return port
+                    else:
+                        print(f"  {port}: no ECU response")
+                except serial.SerialException as e:
+                    print(f"  {port}: {e}")
+                except Exception as e:
+                    print(f"  {port}: {e}")
+
+            set_status("No adapter found, retrying...")
+            time.sleep(scan_interval)
 
 
 
