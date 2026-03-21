@@ -87,7 +87,7 @@ GAUGE_CONFIG = {
     },
     'fuel': {
         'key': 'Fuel Consumption',
-        'label': 'FUEL',
+        'label': 'AVG FUEL',
         'unit': 'L/100',
         'min': 0, 'max': 30,
         'warn': 20.0,
@@ -314,6 +314,10 @@ class Dashboard:
                 decay_rate=cfg['peak_decay'],
             )
 
+        # Fuel consumption journey average
+        self.fuel_avg_sum = 0.0
+        self.fuel_avg_count = 0
+
         # Scanline overlay
         self.scanlines = make_scanlines(width, height)
 
@@ -322,6 +326,8 @@ class Dashboard:
 
     def _get(self, gauge_name):
         """Get current value for a gauge from latest_data, default 0."""
+        if gauge_name == 'fuel' and self.fuel_avg_count > 0:
+            return self.fuel_avg_sum / self.fuel_avg_count
         cfg = GAUGE_CONFIG[gauge_name]
         val = self.data.get(cfg['key'], 0)
         try:
@@ -346,6 +352,23 @@ class Dashboard:
     def update(self, latest_data):
         """Store reference to latest ECU data."""
         self.data = latest_data
+
+        # Accumulate fuel consumption for journey average (only while moving)
+        speed = latest_data.get('Vehicle Speed', 0)
+        try:
+            speed = float(speed)
+        except (TypeError, ValueError):
+            speed = 0.0
+        if speed > 0:
+            fuel_key = GAUGE_CONFIG['fuel']['key']
+            fuel_val = latest_data.get(fuel_key, 0)
+            try:
+                fuel_val = float(fuel_val)
+            except (TypeError, ValueError):
+                fuel_val = 0.0
+            if fuel_val > 0:
+                self.fuel_avg_sum += fuel_val
+                self.fuel_avg_count += 1
 
     def draw(self, surface, t, dt):
         """Draw the complete dashboard onto the surface."""
