@@ -49,18 +49,6 @@ GAUGE_CONFIG = {
         'peak_hold': 1.5,
         'peak_decay': 0.03,
     },
-    'rpm': {
-        'key': 'Engine Speed',
-        'label': 'ENGINE',
-        'unit': 'RPM',
-        'min': 0, 'max': 8000,
-        'warn': 6800,
-        'dp': 0,
-        'bar_segs': 40,
-        'warn_frac': 0.85,
-        'peak_hold': 1.5,
-        'peak_decay': 0.05,
-    },
     'battery': {
         'key': 'Battery Voltage',
         'label': 'BATTERY',
@@ -383,12 +371,9 @@ class Dashboard:
         boost_fonts = (self.f_label, self.f_big, self.f_unit, self.f_small)
 
         # ── Proportional layout ─────────────────────────────────────────
-        # Top row: 41.7% of height, boost takes 52.5% of width
-        top_h = round(H * 0.4167)
+        # Top row: 52% of height, boost takes 52.5% of width
+        top_h = round(H * 0.52)
         boost_w = round(W * 0.525)
-
-        # RPM row: 18.75% of height
-        rpm_h = round(H * 0.1875)
 
         # Footer: ~4.6% of height
         foot_h = max(16, round(H * 0.046))
@@ -419,24 +404,8 @@ class Dashboard:
             scale=s)
         self.peaks['coolant'].update(cool_filled, dt)
 
-        # ── Middle row: RPM full-width ──────────────────────────────────
-        rpm_val = self._get('rpm')
-        rpm_cfg = GAUGE_CONFIG['rpm']
-        rpm_y = PAD + top_h + PAD
-        rpm_rect = pygame.Rect(PAD, rpm_y, W - PAD * 2, rpm_h)
-        rpm_filled = draw_panel(
-            surface, rpm_rect,
-            rpm_cfg['label'], self._format('rpm', rpm_val), rpm_cfg['unit'],
-            rpm_val, rpm_cfg['min'], rpm_cfg['max'],
-            panel_fonts,
-            peak_seg=ceil(self.peaks['rpm'].peak),
-            warn=self._is_warn('rpm', rpm_val),
-            bar_segs=rpm_cfg['bar_segs'], warn_frac=rpm_cfg['warn_frac'],
-            scale=s)
-        self.peaks['rpm'].update(rpm_filled, dt)
-
         # ── Bottom row: Battery, AFR, Fuel ──────────────────────────────
-        bot_y = rpm_y + rpm_h + PAD
+        bot_y = PAD + top_h + PAD
         bot_h = H - bot_y - foot_h - PAD
         pw = (W - PAD * 4) // 3
 

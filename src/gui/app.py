@@ -21,6 +21,7 @@ class App:
     def __init__(self, latest_data, display_width=None, display_height=None,
                  fullscreen=False, target_fps=30):
         pygame.init()
+        pygame.mouse.set_visible(False)
         pygame.display.set_caption("pySSM2 Dashboard")
 
         # Auto-detect screen size if not explicitly provided
